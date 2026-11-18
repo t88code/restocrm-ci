@@ -1,0 +1,54 @@
+name: Проверки процесса
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  process:
+    name: Проверки процесса
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Код вызывающего репозитория
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Скрипты проверок
+        uses: actions/checkout@v4
+        with:
+          repository: t88code/restocrm-ci
+          ref: main
+          path: .restocrm-ci
+
+      - name: Заголовок PR
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: bash .restocrm-ci/scripts/process-checks.sh pr-title "$PR_TITLE"
+
+      - name: RC-N в коммитах
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .restocrm-ci/scripts/process-checks.sh commits "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Файлы с секретами
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .restocrm-ci/scripts/process-checks.sh secrets "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Поиск секретов в коммитах (gitleaks)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # safe.directory: каталог принадлежит runner, git в контейнере работает под другим uid.
+          # Диапазон двухточечный: base..head — коммиты PR без уже слитых в base.
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            zricethezav/gitleaks:v8.18.4 detect \
+            --source /repo --log-opts="$BASE_SHA..$HEAD_SHA" --redact --exit-code 1
