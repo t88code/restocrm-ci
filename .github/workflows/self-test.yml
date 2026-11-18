@@ -1,0 +1,22 @@
+name: Самопроверка
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Тесты скрипта и actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Тесты process-checks.sh
+        run: python3 -m unittest tests/test_process_checks.py -v
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7
