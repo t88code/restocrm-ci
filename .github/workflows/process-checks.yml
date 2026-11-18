@@ -46,5 +46,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4 detect \
+          # safe.directory: каталог принадлежит runner, git в контейнере работает под другим uid.
+          # Диапазон двухточечный: base..head — коммиты PR без уже слитых в base.
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            zricethezav/gitleaks:v8.18.4 detect \
             --source /repo --log-opts="$BASE_SHA..$HEAD_SHA" --redact --exit-code 1

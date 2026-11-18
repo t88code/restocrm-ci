@@ -123,6 +123,36 @@ class CommitsTest(RepoCase):
         self.assertEqual(code, 0, out)
 
 
+class DivergedMainTest(RepoCase):
+    """main ушёл вперёд после ответвления ветки PR: чужие коммиты main не проверяются."""
+
+    def setUp(self):
+        super().setUp()
+        self.git("checkout", "-q", "-b", "pr")
+        self.commit("feat(RC-2): в ветке PR", "pr.txt")
+        self.pr_head = self.rev()
+        self.git("checkout", "-q", "main")
+        self.commit("чужой коммит без номера", "other.txt")
+        self.commit("чужой коммит с секретом", ".env")
+        self.main_tip = self.rev()
+
+    def test_commits_ignore_main_commits(self):
+        code, out = run(["commits", self.main_tip, self.pr_head], self.repo)
+        self.assertEqual(code, 0, out)
+        self.assertIn("проверено: 1", out)
+
+    def test_commits_still_catch_bad_pr_commit(self):
+        self.git("checkout", "-q", "pr")
+        bad = self.commit("без номера в PR", "pr2.txt")
+        code, out = run(["commits", self.main_tip, bad], self.repo)
+        self.assertEqual(code, 1)
+        self.assertIn(bad[:8], out)
+
+    def test_secrets_ignore_main_files(self):
+        code, out = run(["secrets", self.main_tip, self.pr_head], self.repo)
+        self.assertEqual(code, 0, out)
+
+
 class SecretsTest(RepoCase):
     def check(self):
         return run(["secrets", self.base, self.rev()], self.repo)

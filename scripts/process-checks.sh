@@ -25,6 +25,8 @@ cmd_pr_title() {
 cmd_commits() {
   [ $# -eq 2 ] || usage
   local base="$1" head="$2" bad="" sha subject count=0
+  # Двухточечный диапазон base..head: достижимые из head и не достижимые из base.
+  # Коммиты main, уже лежащие в base, в него не попадают; трёхточечный дал бы и чужие.
   while IFS="$(printf '\t')" read -r sha subject; do
     [ -n "$sha" ] || continue
     count=$((count + 1))
